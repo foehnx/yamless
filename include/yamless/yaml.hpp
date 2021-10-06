@@ -285,22 +285,21 @@ class Yaml {
           size_t r = pos;
           int level = 1;
           while (r < end) {
-            if (doc[r] == ':') break;
-            if (doc[r] == '[' || doc[r] == '{' || doc[r] == '(') {
+            const char c = doc[r];
+            if (c == ':') break;
+            if (c == '[' || c == '{' || c == '(') {
               ++level;
               ++r;
               continue;
-            } else if (doc[r] == ']' || doc[r] == '}' || doc[r] == ')') {
+            } else if (c == ']' || c == '}' || c == ')') {
               if (level == 1) {
                 seq_.emplace_back(getFullKeyName(), std::to_string(seq_.size()),
                                   doc, pos, r, 0);
-                --level;
-                break;
               }
               --level;
               ++r;
               continue;
-            } else if (doc[r] == ',' && level == 1) {
+            } else if (c == ',' && level == 1) {
               seq_.emplace_back(getFullKeyName(), std::to_string(seq_.size()),
                                 doc, pos, r, 0);
               pos = ++r;
@@ -364,25 +363,35 @@ class Yaml {
 
   [[nodiscard]] bool as_bool() const {
     // Fast catch for obvious cases such as empty or single char.
-    if (raw_.empty()) return false;
+    if (raw_.empty())
+      throw YamlException(getFullKeyName(), "Can't cast empty node to bool!");
     if (raw_.size() == 1) {
-      if (raw_[0] == '0') return false;
-      if (raw_[0] == 'f') return false;
-      if (raw_[0] == 'F') return false;
-      if (raw_[0] == '1') return true;
-      if (raw_[0] == 't') return true;
-      if (raw_[0] == 'T') return true;
+      if (raw_[0] == '0' || raw_[0] == 'f' || raw_[0] == 'F') return false;
+      if (raw_[0] == '1' || raw_[0] == 't' || raw_[0] == 'T') return true;
       throw YamlException(getFullKeyName(), "Is not a valid bool: " + raw_);
     }
 
-    // Check for spelled cases.
-    std::string lower = raw_;
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    if (lower == "false") return false;
-    if (lower == "true") return true;
+    static constexpr std::array<char, 4> strue{'t', 'r', 'u', 'e'};
+    static constexpr std::array<char, 5> sfalse{'f', 'a', 'l', 's', 'e'};
+
+    size_t true_hit = 0;
+    size_t false_hit = 0;
+    static constexpr size_t case_dist = 'a' - 'A';
+    for (const char c : raw_) {
+      if (c == strue[true_hit] || c + case_dist == strue[true_hit]) {
+        ++true_hit;
+        if (true_hit >= strue.size()) return true;
+      } else {
+        true_hit = 0;
+      }
+      if (c == sfalse[false_hit] || c + case_dist == sfalse[false_hit]) {
+        ++false_hit;
+        if (false_hit >= sfalse.size()) return false;
+      } else {
+        false_hit = 0;
+      }
+    }
     throw YamlException(getFullKeyName(), "Is not a valid bool: " + raw_);
-    return false;
   }
 
   [[nodiscard]] std::string as_string() const {

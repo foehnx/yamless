@@ -36,7 +36,6 @@ TEST_CASE("Read a YAML stream", "[yaml]") {
     "        blu: 4\n"};
 
   Yaml yaml(s);
-  std::cout << yaml;
   CHECK(!yaml["doesnotexist"].isValid());
   CHECK(!yaml["doesnotexist"].isDefined());
   CHECK(yaml["doesnotexist"].size() == 0);
@@ -108,7 +107,6 @@ TEST_CASE("Ill formed YAML parsing", "[yaml]") {
   const std::string ill_formed2{
     "fine_int: 5\n"
     "good_string: \"soo good\"\n"
-    "too_many_closing_brackets_are_ignored: {1.0, 2.0}}\n"
     "too_many_opening_brackets_fail: {{1.0, 2.0}\n"
     "this_could_be_fine_again: 42"};
   CHECK_THROWS([&] {
@@ -119,4 +117,50 @@ TEST_CASE("Ill formed YAML parsing", "[yaml]") {
       throw e;
     }
   }());
+
+  const std::string ill_formed3{
+    "fine_int: 5\n"
+    "good_string: \"soo good\"\n"
+    "too_many_closing_brackets_fail: {1.0, 2.0}}\n"
+    "this_could_be_fine_again: 42"};
+  CHECK_THROWS([&] {
+    try {
+      Yaml yaml(ill_formed3);
+    } catch (std::exception& e) {
+      std::cout << e.what();
+      throw e;
+    }
+  }());
+}
+
+TEST_CASE("Bool parsing", "[yaml]") {
+  const std::string bools{
+    "true_1: 1\n"
+    "false_0: 0\n"
+    "true_t: t\n"
+    "false_f: f\n"
+    "true_T: T\n"
+    "false_F: F\n"
+    "true: true\n"
+    "false: false\n"
+    "true_case: TruE\n"
+    "false_case: fALse\n"
+    "true_quote: \"true\"\n"
+    "false_quote: \"false\"\n"
+    "true_sentence: \"if it has true and false, the first is returned\"\n"};
+  Yaml yaml{bools};
+  std::cout << yaml;
+  CHECK(yaml["true_1"].as<bool>() == true);
+  CHECK(yaml["false_0"].as<bool>() == false);
+  CHECK(yaml["true_t"].as<bool>() == true);
+  CHECK(yaml["false_f"].as<bool>() == false);
+  CHECK(yaml["true_T"].as<bool>() == true);
+  CHECK(yaml["false_F"].as<bool>() == false);
+  CHECK(yaml["true"].as<bool>() == true);
+  CHECK(yaml["false"].as<bool>() == false);
+  CHECK(yaml["true_case"].as<bool>() == true);
+  CHECK(yaml["false_case"].as<bool>() == false);
+  CHECK(yaml["true_quote"].as<bool>() == true);
+  CHECK(yaml["false_quote"].as<bool>() == false);
+  CHECK(yaml["true_sentence"].as<bool>() == true);
 }
